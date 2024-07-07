@@ -1,0 +1,143 @@
+#include <stdio.h>             //Libreria Estandar
+#include <stdlib.h>            //Libreria proposito general
+#include <time.h>              //Libreria para fechas y horas
+#include <unistd.h>            //Librerias para funciones POSIX
+
+struct Producto {               //Estructura para el producto
+    int sku;
+    int peso_gramos;
+    int alto_cm;
+    int ancho_cm;
+    int profundidad_cm;
+};
+
+struct ControlStock {          ////Estructura para el control de stock
+    struct Producto stock[100]; // Array de productos
+    int num_productos;
+    time_t start_time;
+    int cantidades_productos[100]; // Array de cantidades
+};
+
+void control_stock_init(struct ControlStock *control) {         //manejo del inventario
+    control->num_productos = 0;
+    control->start_time = time(NULL);           //Se fija al tiempo actual
+}
+
+void control_stock_agregar(struct ControlStock *control, int sku, int peso_gramos, int alto_cm, int ancho_cm, int profundidad_cm) {
+    //Si encontro el SKU aumenta la cantidad
+    int i;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == sku) {
+            control->cantidades_productos[i] += 1;
+            return;
+        }
+    }
+    // Si no se encontró el SKU, se añade como nuevo producto
+    control->stock[control->num_productos].sku = sku;
+    control->stock[control->num_productos].peso_gramos = peso_gramos;
+    control->stock[control->num_productos].alto_cm = alto_cm;
+    control->stock[control->num_productos].ancho_cm = ancho_cm;
+    control->stock[control->num_productos].profundidad_cm = profundidad_cm;
+    control->cantidades_productos[control->num_productos] = 1;
+    control->num_productos++;
+}
+
+void control_stock_eliminar(struct ControlStock *control, int sku) {
+    int i, j;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == sku) {
+            for (j = i; j < control->num_productos - 1; ++j) {
+                control->stock[j] = control->stock[j + 1];
+                control->cantidades_productos[j] = control->cantidades_productos[j + 1];
+            }
+            control->num_productos--;
+            return;
+        }
+    }
+}
+
+struct Producto control_stock_sku(struct ControlStock *control, int sku) {
+    struct Producto not_found = {0, 0, 0, 0, 0};
+    int i;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == sku) {
+            return control->stock[i];
+        }
+    }
+    return not_found; // SKU no encontrado
+}
+
+int control_stock_segundos(struct ControlStock *control) {
+    time_t now = time(NULL);
+    return difftime(now, control->start_time);
+}
+
+void realizar_lectura(struct ControlStock *control) {
+    // Ordenar los productos por cantidad descendente y luego por SKU
+    for (int i = 0; i < control->num_productos - 1; ++i) {
+        for (int j = i + 1; j < control->num_productos; ++j) {
+            if (control->cantidades_productos[i] < control->cantidades_productos[j] ||
+                (control->cantidades_productos[i] == control->cantidades_productos[j] &&
+                 control->stock[i].sku > control->stock[j].sku)) {
+                // Intercambiar productos
+                struct Producto temp_producto = control->stock[i];
+                control->stock[i] = control->stock[j];
+                control->stock[j] = temp_producto;
+                
+                // Intercambiar cantidades
+                int temp_cantidad = control->cantidades_productos[i];
+                control->cantidades_productos[i] = control->cantidades_productos[j];
+                control->cantidades_productos[j] = temp_cantidad;
+            }
+        }
+    }
+
+    // Realizar alguna acción cada 10 segundos
+    printf("Realizando lectura...\n");
+    // Mostrar el tiempo transcurrido desde el inicio
+    printf("Tiempo transcurrido: %d segundos.\n", control_stock_segundos(control));
+    // Mostrar la lista de cantidades de productos
+    printf("Lista de cantidades de productos:\n");
+    for (int i = 0; i < control->num_productos; ++i) {
+        printf("SKU %d: %d unidades\n", control->stock[i].sku, control->cantidades_productos[i]);
+    }
+    printf("\n");
+}
+
+void imprimir_producto(struct ControlStock *control, int sku) {
+    struct Producto producto = control_stock_sku(control, sku);
+    if (producto.sku != 0) {
+        printf("Producto SKU %d:\n", producto.sku);
+        printf("Peso: %d gramos\n", producto.peso_gramos);
+        printf("Dimensiones: %d cm x %d cm x %d cm\n", producto.alto_cm, producto.ancho_cm, producto.profundidad_cm);
+    } else {
+        printf("Producto con SKU %d no encontrado.\n", sku);
+    }
+}
+
+int main() {
+    struct ControlStock control;
+
+    // Inicializar ControlStock
+    control_stock_init(&control);
+
+    // Ejemplo de uso:
+    control_stock_agregar(&control, 1, 500, 10, 5, 3); // Producto SKU 1
+    control_stock_agregar(&control, 2, 300, 7, 4, 2); // Producto SKU 2
+    control_stock_agregar(&control, 1, 500, 10, 5, 3); // Producto SKU 1 nuevamente
+
+    // Imprimir un producto específico
+    imprimir_producto(&control, 1);
+
+    // Eliminar un producto
+    control_stock_eliminar(&control, 2);
+
+    // Simular la lectura cada 10 segundos
+    while (1) {
+        realizar_lectura(&control);
+        // Pausa de 10 segundos
+        sleep(10); // 10 segundos
+    }
+
+    return 0;
+}
