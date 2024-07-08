@@ -1,0 +1,192 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+
+struct Producto {
+    int sku;
+    int peso_gramos;
+    int alto_cm;
+    int ancho_cm;
+    int profundidad_cm;
+};
+
+struct ControlStock {
+    struct Producto stock[100];
+    int num_productos;
+    time_t start_time;
+    int cantidades_productos[100];
+};
+
+struct st_pack {
+    int accion;
+    struct Producto producto;
+};
+
+void control_stock_init(struct ControlStock *control) {
+    control->num_productos = 0;
+    control->start_time = time(NULL);
+}
+
+void control_stock_agregar(struct ControlStock *control, struct Producto producto) {
+    int i;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == producto.sku) {
+            control->cantidades_productos[i] += 1;
+            return;
+        }
+    }
+    control->stock[control->num_productos] = producto;
+    control->cantidades_productos[control->num_productos] = 1;
+    control->num_productos++;
+}
+
+void control_stock_eliminar(struct ControlStock *control, int sku) {
+    int i, j;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == sku) {
+            for (j = i; j < control->num_productos - 1; ++j) {
+                control->stock[j] = control->stock[j + 1];
+                control->cantidades_productos[j] = control->cantidades_productos[j + 1];
+            }
+            control->num_productos--;
+            return;
+        }
+    }
+}
+
+struct Producto control_stock_sku(struct ControlStock *control, int sku) {
+    struct Producto not_found = {0, 0, 0, 0, 0};
+    int i;
+    for (i = 0; i < control->num_productos; ++i) {
+        if (control->stock[i].sku == sku) {
+            return control->stock[i];
+        }
+    }
+    return not_found;
+}
+
+int control_stock_segundos(struct ControlStock *control) {
+    time_t now = time(NULL);
+    return difftime(now, control->start_time);
+}
+
+void imprimir_producto(struct ControlStock *control, int sku) {
+    struct Producto producto = control_stock_sku(control, sku);
+    if (producto.sku != 0) {
+        printf("Producto SKU %d:\n", producto.sku);
+        printf("Peso: %d gramos\n", producto.peso_gramos);
+        printf("Dimensiones: %d cm x %d cm x %d cm\n", producto.alto_cm, producto.ancho_cm, producto.profundidad_cm);
+    } else {
+        printf("Producto con SKU %d no encontrado.\n", sku);
+    }
+}
+
+void ordenar_productos(struct ControlStock *control) {
+    int i, j;
+    for (i = 0; i < control->num_productos - 1; ++i) {
+        for (j = i + 1; j < control->num_productos; ++j) {
+            if (control->cantidades_productos[i] < control->cantidades_productos[j] ||
+                (control->cantidades_productos[i] == control->cantidades_productos[j] &&
+                 control->stock[i].sku > control->stock[j].sku)) {
+                struct Producto temp_producto = control->stock[i];
+                control->stock[i] = control->stock[j];
+                control->stock[j] = temp_producto;
+
+                int temp_cantidad = control->cantidades_productos[i];
+                control->cantidades_productos[i] = control->cantidades_productos[j];
+                control->cantidades_productos[j] = temp_cantidad;
+            }
+        }
+    }
+}
+
+void imprimir_productos(struct ControlStock *control) {
+    ordenar_productos(control);
+    printf("Lista de productos:\n");
+    for (int i = 0; i < control->num_productos; ++i) {
+        imprimir_producto(control, control->stock[i].sku);
+        printf("Cantidad: %d\n", control->cantidades_productos[i]);
+    }
+    printf("\n");
+}
+
+struct st_pack lectura() {
+    struct st_pack pack;
+    printf("Seleccione una acción (0: No hacer nada, 1: Agregar producto, 2: Eliminar producto, 3: Imprimir producto individual, 4: Imprimir todos los productos, 5: Imprimir producto con cantidad máxima): ");
+    scanf("%d", &pack.accion);
+
+    if (pack.accion == 1 || pack.accion == 3) {
+        printf("Ingrese SKU: ");
+        scanf("%d", &pack.producto.sku);
+        if (pack.accion == 1) {
+            printf("Ingrese peso en gramos: ");
+            scanf("%d", &pack.producto.peso_gramos);
+            printf("Ingrese alto en cm: ");
+            scanf("%d", &pack.producto.alto_cm);
+            printf("Ingrese ancho en cm: ");
+            scanf("%d", &pack.producto.ancho_cm);
+            printf("Ingrese profundidad en cm: ");
+            scanf("%d", &pack.producto.profundidad_cm);
+        }
+    }
+
+    return pack;
+}
+
+void realizar_lectura(struct ControlStock *control) {
+    struct st_pack pack = lectura();
+
+    switch (pack.accion) {
+        case 0:
+            printf("No se realiza ninguna acción.\n");
+            break;
+        case 1:
+            control_stock_agregar(control, pack.producto);
+            printf("Producto agregado.\n");
+            break;
+        case 2: {
+            int sku;
+            printf("Ingrese SKU a eliminar: ");
+            scanf("%d", &sku);
+            control_stock_eliminar(control, sku);
+            printf("Producto eliminado.\n");
+            break;
+        }
+        case 3:
+            imprimir_producto(control, pack.producto.sku);
+            break;
+        case 4:
+            imprimir_productos(control);
+            break;
+        case 5: {
+            if (control->num_productos == 0) {
+                printf("No hay productos en el inventario.\n");
+            } else {
+                ordenar_productos(control);
+                printf("Producto con mayor cantidad:\n");
+                imprimir_producto(control, control->stock[0].sku);
+                printf("Cantidad: %d\n", control->cantidades_productos[0]);
+            }
+            break;
+        }
+        default:
+            printf("Acción desconocida.\n");
+            break;
+    }
+
+    printf("Tiempo transcurrido: %d segundos.\n", control_stock_segundos(control));
+    printf("\n");
+}
+
+int main() {
+    struct ControlStock control;
+    control_stock_init(&control);
+
+    while (1) {
+        realizar_lectura(&control);
+        sleep(10); // Pausa de 10 segundos
+    }
+
+    return 0;
+}
