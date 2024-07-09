@@ -3,7 +3,7 @@
 #include <time.h>
 #include <unistd.h>
 
-struct Producto {
+struct Producto {           //variables del producto
     int sku;
     int peso_gramos;
     int alto_cm;
@@ -111,7 +111,7 @@ void imprimir_productos(struct ControlStock *control) {
     printf("\n");
 }
 
-struct st_pack lectura() {
+struct st_pack lectura() {      //Solicita al usuario que seleccione una acción
     struct st_pack pack;
     printf("Seleccione una acción (0: No hacer nada, 1: Agregar producto, 2: Eliminar producto, 3: Imprimir producto individual, 4: Imprimir todos los productos, 5: Imprimir producto con cantidad máxima): ");
     scanf("%d", &pack.accion);
@@ -134,18 +134,18 @@ struct st_pack lectura() {
     return pack;
 }
 
-void realizar_lectura(struct ControlStock *control) {
+void realizar_lectura(struct ControlStock *control) {       //Realiza la acción seleccionada anteriormente
     struct st_pack pack = lectura();
 
     switch (pack.accion) {
-        case 0:
+        case 0:             //no hacer nada
             printf("No se realiza ninguna acción.\n");
             break;
-        case 1:
+        case 1:             //Añade el producto
             control_stock_agregar(control, pack.producto);
             printf("Producto agregado.\n");
             break;
-        case 2: {
+        case 2: {           //elimina el producto
             int sku;
             printf("Ingrese SKU a eliminar: ");
             scanf("%d", &sku);
@@ -153,13 +153,13 @@ void realizar_lectura(struct ControlStock *control) {
             printf("Producto eliminado.\n");
             break;
         }
-        case 3:
+        case 3:             //imprime el producto
             imprimir_producto(control, pack.producto.sku);
             break;
-        case 4:
+        case 4:         //imprime los productos
             imprimir_productos(control);
             break;
-        case 5: {
+        case 5: {           //imprime el produco con mayor cantidad
             if (control->num_productos == 0) {
                 printf("No hay productos en el inventario.\n");
             } else {
@@ -171,7 +171,7 @@ void realizar_lectura(struct ControlStock *control) {
             break;
         }
         default:
-            printf("Acción desconocida.\n");
+            printf("Acción desconocida.\n");        //si no se seleccion ninguna de las acciones establecidas devuelve mensaje de error
             break;
     }
 
